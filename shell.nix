@@ -6,5 +6,6 @@ pkgs.mkShell {
     pkgs.cjson
     pkgs.ncurses
     pkgs.pkg-config
+    pkgs.gdb
   ];
 }

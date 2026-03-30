@@ -28,4 +28,8 @@ per vault config inside the json file
 a tui configurator that writes to the json
 an option or save in another part for backups (like periodically just put the directory you want to save in config)
 
+a lot of options. via the config.json or via flags.
+a option/flag to not render.
+
+
 later to port it to Nix

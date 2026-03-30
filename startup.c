@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <limits.h> // for PATH_MAX
 #include <ncurses.h>
+#include <unistd.h>
 
 char** getVaultsFromDirectory(char *dirString, size_t *count) { 
     // (TODO LATER) it might be a good idea to check if these directories exist
@@ -47,6 +48,18 @@ char** getVaultsFromDirectory(char *dirString, size_t *count) {
     *count = dirsCount;
     return dirsArray;
 } 
+
+int openNvim(char *path) {
+  printf("Opening with command nvim +:NvimTreeOpen %s\n", path);
+  execlp("nvim",
+         "nvim", // we can specify each argument for nvim by passing more args to execlp
+         path,
+         NULL);
+  perror("execlp failed");
+  return 1;
+}
+
+
 
 char** getNotesFromVault(char *pathToVault, char *vault, int *count) {
     // this function is inputed a path to a vault (which was selected before) and outpus all the suitable notes (so not the hidden ones)
@@ -186,46 +199,76 @@ int main() {
     } else {
         notesDirectoryString = "~/Documents/Notes/";  // default
     }
-    size_t vaultsCount = 0;
-    char **vaultsArray = getVaultsFromDirectory(notesDirectoryString, &vaultsCount);
-    qsort(vaultsArray, vaultsCount, sizeof(const char *), compareString); // sorts the vaults alphabetically
-    printf("Available vaults:\n");
-    for (size_t i = 0; i < vaultsCount; i++) {
-      printf("%s\n", vaultsArray[i]);
-    }
-    
-    // adds "create a new vault" into the vaultsArray
-    // (TODO LATER) maybe add an option for setting
-    const int extraOptions = 2;
-    vaultsArray = realloc(vaultsArray, (vaultsCount + extraOptions)*sizeof(char*)); // resize dirsArray so that
-    // (TODO LATER) add a way to Colorize the extraOptions
-    vaultsArray[vaultsCount] = "Create a new vault"; // some more options that are not vaults
-    vaultsArray[vaultsCount+1] = "Settings";
-    // select a vault
-    char *vaultSelected = ncursesSelect(vaultsArray, "vault", vaultsCount + extraOptions);
-    printf("Selected vault:%s\n", vaultSelected);
-    
-    if (vaultSelected != "Create a new vault" || vaultSelected != "Settings") {
-      int filesCount = 0;
-      char **filesArray = getNotesFromVault(notesDirectoryString, vaultSelected, &filesCount);
-      qsort(filesArray, filesCount, sizeof(const char *), compareString); // sorts the notes alphabetically
-                                                                          //
-      printf("Available notes:\n");
-      for (size_t i = 0; i < filesCount; i++) {
-        printf("%s\n", filesArray[i]);
+
+    int shouldExit = 0;
+    while(!shouldExit) {
+      // this loop is the vault selector
+      size_t vaultsCount = 0;
+      char **vaultsArray = getVaultsFromDirectory(notesDirectoryString, &vaultsCount);
+      qsort(vaultsArray, vaultsCount, sizeof(const char *), compareString); // sorts the vaults alphabetically
+      printf("Available vaults:\n");
+      for (size_t i = 0; i < vaultsCount; i++) {
+        printf("%s\n", vaultsArray[i]);
       }
-      char *noteSelected = ncursesSelect(filesArray, "note", filesCount);
-      printf("Selected note: %s", noteSelected);
-    } else if (vaultSelected == "Create a new vault") {
+      
+      // adds "create a new vault" into the vaultsArray
+      const int extraOptions = 3;
+      vaultsArray = realloc(vaultsArray, (vaultsCount + extraOptions)*sizeof(char*)); // resize vaultsArray to fit the extra options
+      // (TODO LATER) add a way to Colorize the extraOptions
+      vaultsArray[vaultsCount] = "Create a new vault"; // some more options that are not vaults
+      vaultsArray[vaultsCount+1] = "Settings";
+      vaultsArray[vaultsCount+2] = "Quit (Ctrl+C)";
+      // select a vault
+      char *vaultSelected = ncursesSelect(vaultsArray, "vault", vaultsCount + extraOptions);
+      printf("Selected vault:%s\n", vaultSelected);
+      
+      if (vaultSelected != "Create a new vault" && vaultSelected != "Settings" && vaultSelected != "Quit (Ctrl+C)") {
+        int shouldChangeVault = 0;
+        while (!shouldExit && !shouldChangeVault) {
+          // this loop is the note selector
+          int filesCount = 0;
+          char **filesArray = getNotesFromVault(notesDirectoryString, vaultSelected, &filesCount);
+          qsort(filesArray, filesCount, sizeof(const char *), compareString); // sorts the notes alphabetically
+                                                                              //
+          printf("Available notes:\n");
+          for (size_t i = 0; i < filesCount; i++) {
+            printf("%s\n", filesArray[i]);
+          }
+          // adds options
+          int extraNotesOptions = 3;
+          filesArray = realloc(filesArray, (filesCount + extraNotesOptions)*sizeof(char*)); // resize filesArray to fit the extra options
+          filesArray[filesCount] = "Create new note";
+          filesArray[filesCount+1] = "Back to vault selection";
+          filesArray[filesCount+2] = "Quit (Ctrl+C)";
+          char *noteSelected = ncursesSelect(filesArray, "note", filesCount + extraNotesOptions);
+          printf("Selected note: %s\n", noteSelected);
+          if (noteSelected != "Create new note" && noteSelected != "Back to vault selection" && noteSelected != "Quit (Ctrl+C)") {
+            char fullPath[PATH_MAX];
+            sprintf(fullPath, "%s/%s/%s", notesDirectoryString, vaultSelected, noteSelected);
+            openNvim(fullPath);
+          } else if (noteSelected == "Create new note") {
 
-    } else if (vaultSelected == "Settings") {
-      //(TODO LATER) add a way to change the config.json from the app or at least show all the options
+          } else if (noteSelected == "Back to vault selection") {
+            shouldChangeVault = 1;
+          } else if (noteSelected == "Quit (Ctrl+C)") {
+            printf("The program was exited,\n");
+            shouldExit = 1;
+          }
+        }
+
+      } else if (vaultSelected == "Create a new vault") {
+
+      } else if (vaultSelected == "Settings") {
+        //(TODO LATER) add a way to change the config.json from the app or at least show all the options
+      } else if (vaultSelected == "Quit (Ctrl+C)") {
+        printf("The program was exited.\n");
+        shouldExit = 1;
+      }
     }
-
+    
     // Cleanup
     if (dirJsonFormat && notesDirectoryString != dirJsonFormat->valuestring) free(notesDirectoryString); // only free strdup
     cJSON_Delete(json);
     free(data);
-
     return 0;
 }
