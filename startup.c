@@ -495,7 +495,7 @@ int main(int argc, char *argv[]) {
         createNewVault(notesDirectoryString, debug);
       } else if (strcmp(vaultSelected,"Settings") == 0) {
         // (TODO LATER) add a way to modify the path to config.json
-        openNvim("./config.json", debug);
+        openNvim(configPath, debug);
       } else if (strcmp(vaultSelected,"Quit (Ctrl+C)") == 0) {
         if (debug) {printf("\e[0;32m[DEBUG]\e[0m The program was exited.\n");}
         shouldExit = 1;
