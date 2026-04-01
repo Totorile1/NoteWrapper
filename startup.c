@@ -223,7 +223,7 @@ char** getNotesFromVault(char *pathToVault, char *vault, int *count, int debug) 
     return notesArray;
 }
 
-char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, int extraOptionsNumber, int debug) {
+char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, size_t extraOptionsNumber, int debug) {
     // this function is used multiple times let the user select one options from many.
     // options is the array of strings with all the options.
     // one of this option will be returned
