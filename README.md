@@ -16,7 +16,8 @@ git clone https://github.com/Totorile1/NoteWrapper.git
 cd NoteWrapper
 make
 ```
-4. run the binary `notewrapper`
+4. configure `./config.json`
+5. run the binary `notewrapper`
 
 ### What needs to be done (a lot)
 - [x] Add a way to create vaults

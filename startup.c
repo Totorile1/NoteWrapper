@@ -62,7 +62,7 @@ char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, int debug) {
   endwin();
   // (TODO LATER) add a way to go back to note selection
   if (strcmp(fileName, "") == 0) {
-    printf("\e[0;32mERROR: fileName is empty\e[0m\n");
+    printf("\e[0;32mERROR: fileName is empty\e[0m\n"); // (TODO LATER) it should just go back to the note creation with a warning
     exit(1);
   }
   // check/sanitize the input
@@ -223,21 +223,34 @@ char** getNotesFromVault(char *pathToVault, char *vault, int *count, int debug) 
     return notesArray;
 }
 
-char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, int debug) { // this fonction make a TUI to select one of multiple options.
+char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, int extraOptionsNumber, int debug) {
+    // this function is used multiple times let the user select one options from many.
+    // options is the array of strings with all the options.
+    // one of this option will be returned
+    // optionsText is the text that will be printed at the top (For example: "Please select ...")
+    // we distinguish options from extraOptions
+    // options could be the list of all notes or all vaults
+    // extraOptions are options that are special and have a special color (for ex: "Delete vault", "Settings", etc.)
+    // note: extraOptions should be at the end of options
+
     int highlight = 0; //curently highlighted option
-    int choice = 1; //selected index
     int key;
 
     initscr(); //initialize ncurses
     cbreak();               // disable line buffering
     noecho();               // don't echo key presses
     keypad(stdscr, TRUE);   // enable arrow keys 
+    start_color();
+    curs_set(0); // sets the cursor to invisible. (We will emulate the cursor with a hightlight that go up and down).
+    use_default_colors(); //(TODO LATER) customize these colors in the config file
+    init_pair(1, COLOR_WHITE, -1); // color for optionsNumber (so notes, vaults, etc.)
+    init_pair(2, COLOR_BLUE, -1); // color for extraOptionsNumber (so settings, delete notes, create vault, etc.)
     while (1) {
       clear();
+      attron(COLOR_PAIR(1));
       mvprintw(0,0, "Select %s (Use arrows or WASD, Enter to select):", optionsText);
-
-            // Print options with highlighting
-      for(int i = 0; i < optionsNumber; i++) {
+      // Print options with highlighting
+      for (int i = 0; i < optionsNumber; i++) {
         if (i == highlight) {
           attron(A_REVERSE);
         }   // highlight selected
@@ -246,6 +259,19 @@ char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, int
           attroff(A_REVERSE);
         }
       }
+      attroff(COLOR_PAIR(1));
+      // Printf extraOptions with highlighting
+      attron(COLOR_PAIR(2));
+      for (int k = optionsNumber; k < optionsNumber + extraOptionsNumber; k++) {
+        if (k == highlight) {
+          attron(A_REVERSE);
+        }
+        mvprintw(k+2, 2, "%s", options[k]);
+        if (k == highlight) {
+          attroff(A_REVERSE);
+        }
+      }
+      attroff(COLOR_PAIR(2));
       key = getch(); //get some int which value correspond to some key being pressed
 
       switch(key) {
@@ -254,25 +280,24 @@ char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, int
         case 'W':
           highlight--;
           if (highlight < 0) {
-            highlight = optionsNumber - 1;// can't select the -1nth option
+            highlight = optionsNumber + extraOptionsNumber - 1;// can't select the -1nth option
           }
           break;
         case 's':
         case 'S':
         case KEY_DOWN:
           highlight++;
-          if (highlight >= optionsNumber) {
+          if (highlight >= optionsNumber + extraOptionsNumber) {
             highlight = 0;
           }
           break;
         case 10: //\n
-          choice = highlight;
           goto end_loop;
       }
     }
     end_loop:
     endwin(); // end ncurses mode
-    return options[choice];
+    return options[highlight];
 }
 
 
@@ -376,7 +401,7 @@ int main(int argc, char *argv[]) {
       vaultsArray[vaultsCount+1] = "Settings";
       vaultsArray[vaultsCount+2] = "Quit (Ctrl+C)";
       // select a vault
-      char *vaultSelected = ncursesSelect(vaultsArray, "Select vault (Use arrows or WASD, Enter to select):", vaultsCount + extraOptions, debug);
+      char *vaultSelected = ncursesSelect(vaultsArray, "Select vault (Use arrows or WASD, Enter to select):", vaultsCount, extraOptions, debug);
       if (debug) {printf("\e[0;32m[DEBUG]\e[0m Selected vault:%s\n", vaultSelected);}
       
       if (strcmp(vaultSelected,"Create a new vault") != 0 && strcmp(vaultSelected,"Settings") != 0 && strcmp(vaultSelected,"Quit (Ctrl+C)") != 0) {
@@ -401,7 +426,7 @@ int main(int argc, char *argv[]) {
           filesArray[filesCount+1] = "Back to vault selection";
           filesArray[filesCount+2] = "Delete vault";
           filesArray[filesCount+3] = "Quit (Ctrl+C)";
-          char *noteSelected = ncursesSelect(filesArray, "Select note (Use arrows or WASD, Enter to select):", filesCount + extraNotesOptions, debug);
+          char *noteSelected = ncursesSelect(filesArray, "Select note (Use arrows or WASD, Enter to select):", filesCount, extraNotesOptions, debug);
           if (debug) {printf("\e[0;32m[DEBUG]\e[0m Selected note: %s\n", noteSelected);}
           
           if (strcmp(noteSelected, "Create new note") != 0 && strcmp(noteSelected,"Back to vault selection") != 0 && strcmp(noteSelected, "Delete vault") != 0 && strcmp(noteSelected,"Quit (Ctrl+C)") != 0) {
@@ -416,7 +441,7 @@ int main(int argc, char *argv[]) {
             shouldChangeVault = 1;
           } else if (strcmp(noteSelected, "Delete vault") == 0) {
             const char *yesNo[] = {"No, go back to note selection.", "Yes."};
-            char *answer = ncursesSelect((char **)yesNo, "Are you sure you want to delete the entire vault? This can not be undone.", 2, debug);
+            char *answer = ncursesSelect((char **)yesNo, "Are you sure you want to delete the entire vault? This can not be undone.", 1, 1, debug);
             if (debug) {printf("\e[0;32m[DEBUG]\e[0mYou answered: \e[0;32m%s\e[0m for deleting the vault named \e[0;32m%s\e[0m\n", answer, vaultSelected);}
             if (strcmp(answer, "Yes.") == 0) {
               // delete the vault after confirmation by the user
