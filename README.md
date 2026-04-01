@@ -19,13 +19,16 @@ make
 4. configure `./config.json`
 5. run the binary `notewrapper`
 
+### Configuration
+Change `$/.config/notewrapper/config.json`. If it does not exist. On building, it should copy a default config.
+
 ### What needs to be done (a lot)
 - [x] Add a way to create vaults
 - [x] Add a way to delete vaults
 - [ ] Add a way to delete notes
 - [x] Stylisize a bit the TUI
 - [ ] Add more options to the config file
-- [ ] Search for config.json in other directories such as ~/.config/notewrapper/ and not only this directory
+- [x] Search for config.json in other directories such as ~/.config/notewrapper/ and not only this directory
 - [x] Port vivify.vim to nixpkgs
 - [ ] Add a way to have vaults in different directories
 - [ ] Actually open vivify when opening nvim

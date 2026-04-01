@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <ftw.h> // used for deleting dirs
+#include <pwd.h> // for getting home directory
 
 // small helper functions here. Big ones are after
 int compareString(const void *a, const void *b) { // this will be the function used by qsort
@@ -48,6 +49,7 @@ int rmrf(char *path) {
 
 // big critical functions here. Small ones are before
 char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, int debug) {
+  // (TODO LATER) Add check. If the user creates a note with a name that already exists. it erases the old one
   // input from user for the name
   char fileName[256];
   initscr();
@@ -147,8 +149,7 @@ char** getVaultsFromDirectory(char *dirString, size_t *count, int debug) {
     // originally from https://www.geeksforgeeks.org/c/c-program-list-files-sub-directories-directory/
     struct dirent *vaultsDirectoryEntry;
     DIR *vaultsDirectory = opendir(dirString);
-        if (vaultsDirectory == NULL)  // opendir returns NULL if couldn't open directory
-    {
+        if (vaultsDirectory == NULL)  { // opendir returns NULL if couldn't open directory
         printf("\e[0;31mERROR: Could not open current directory\e[0m\n" );
         exit(1); //something is fucked up
     }
@@ -339,46 +340,79 @@ int main(int argc, char *argv[]) {
             debug = 1;
         }
     }
-    // Read config file
-    FILE *f = fopen("./config.json", "r");
-    if (!f) {
-        fprintf(stderr, "\e[0;31mERROR: Could not open config.json\e[0m\n");
-        return 1;
+
+    //---------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------
+    // this part handles the config.json file
+    
+    // gets the home directory
+    struct passwd *pw = getpwuid(getuid());
+    const char *homedir = pw->pw_dir;
+    
+    // check if the config file exists
+    char configPath[PATH_MAX];
+    snprintf(configPath, sizeof(configPath), "%s/.config/notewrapper/config.json", homedir);
+    if (debug) {printf("\e[0;32m[DEBUG]\e[0m the path to the config file is %s\n", configPath);}
+    if (stat(configPath, &(struct stat){0}) == -1) { // if the config directory do not exist
+      printf("\e[0;31mERROR: the config file (\e[0;32m$/.config/notewrapper/config.json\e[0;31m) does not exist.\nCompiling the program with \e[0;32mmake\e[0;31m should solve this error.\e[0m\n");
+      exit(1);
     }
 
+    // opens config.json
+    FILE *f = fopen(configPath, "r");
+    if (!f) {
+      printf("\e[0;31mERROR: The config file does exist, but can not be open. Something went wrong.\e[0;32m\n");
+      exit(1);
+    }
+
+    // loads and read the config file
+    //gets the size
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
     rewind(f);
-
-    char *data = malloc(size + 1);
-    size_t read_bytes = fread(data, 1, size, f);
-    if (read_bytes != size) {
-        fprintf(stderr, "\e[0;31mERROR: Failed to read file\e[0m\n");
-        free(data);
-        fclose(f);
-        return 1;
+    //gets the data
+    char *data = malloc(size+1);
+    if (!data) {
+      fclose(f);
+      printf("\e[0;31mERROR: malloc failed allocating memory for the variable data. Something went wrong.\e[0m\n");
+      exit(1);
     }
-    data[size] = 0;
+    size_t readBytes = fread(data, 1, size, f); // 1 --> size of each item
+    if (readBytes != size) {
+      printf("\e[0;31mERROR: Failed to read config file (%zu bytes read, expected %ld)\e[0m\n", readBytes, size);
+      free(data);
+      fclose(f);
+      exit(1);
+    }
+    data[size] = '\0';
     fclose(f);
 
-    // Parse JSON
+    // parse the JSON
+    
     cJSON *json = cJSON_Parse(data);
     if (!json) {
-        fprintf(stderr, "\e[0;31mERROR: JSON parse error\[0m\n");
-        free(data);
-        return 1;
+      printf("\e[0;31mERROR: JSON parse error\e[0m\n");  // (TODO LATER) replace all printf("\e[0;31m with fpintf(stderr( "\e[0;31m and maybe debug messages too
+      free(data);
+      exit(1);
     }
-
-    // Get "directory"
-    cJSON *dirJsonFormat = cJSON_GetObjectItem(json, "directory");
-    
-    char *notesDirectoryString = NULL;
-    if (dirJsonFormat && cJSON_IsString(dirJsonFormat) && dirJsonFormat->valuestring != NULL) {
-        notesDirectoryString = strdup(dirJsonFormat->valuestring);  // independent string
+    cJSON *dirJson = cJSON_GetObjectItem(json, "directory");
+    char *notesDirectoryString = malloc(PATH_MAX);
+    if (dirJson && cJSON_IsString(dirJson) && dirJson->valuestring != NULL) {
+      const char *rawPath = dirJson->valuestring;
+      if (rawPath[0] == '$') { // expands $ in the path
+        snprintf(notesDirectoryString, PATH_MAX, "%s/%s", homedir, rawPath+1);
+      } else {
+        notesDirectoryString = strdup(rawPath);
+      }
     } else {
-        notesDirectoryString = "~/Documents/Notes/";  // default
+      // default vault path if it is not set in the config
+      snprintf(notesDirectoryString, PATH_MAX, "%s/Documents/Notes/", homedir);
     }
-
+    //cleans up
+    cJSON_Delete(json);
+    free(data);
+    //---------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------
     int shouldExit = 0;
     while(!shouldExit) {
       // this loop is the vault selector
@@ -431,7 +465,7 @@ int main(int argc, char *argv[]) {
           
           if (strcmp(noteSelected, "Create new note") != 0 && strcmp(noteSelected,"Back to vault selection") != 0 && strcmp(noteSelected, "Delete vault") != 0 && strcmp(noteSelected,"Quit (Ctrl+C)") != 0) {
             char fullPath[PATH_MAX];
-            sprintf(fullPath, "%s/%s/%s", notesDirectoryString, vaultSelected, noteSelected);
+            sprintf(fullPath, "%s/%s/%s", notesDirectoryString, vaultSelected, noteSelected); // (TODO LATER) change all sprintf to snprintf which checks for buffer size
             openNvim(fullPath, debug);
           } else if (strcmp(noteSelected,"Create new note") == 0) {
             char *pathToOpen = createNewNote(notesDirectoryString, vaultSelected, debug);
@@ -467,10 +501,5 @@ int main(int argc, char *argv[]) {
         shouldExit = 1;
       }
     }
-    
-    // Cleanup
-    if (dirJsonFormat && notesDirectoryString != dirJsonFormat->valuestring) free(notesDirectoryString); // only free strdup
-    cJSON_Delete(json);
-    free(data);
     return 0;
 }
