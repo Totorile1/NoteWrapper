@@ -46,3 +46,4 @@ Change `$/.config/notewrapper/config.json`. If it does not exist. On building, i
 - [x] Port to vim
 - [ ] Fixe all the small stuff marked //(TODO LATER) in the code
 - [ ] Add a way to delete notes
+- [ ] Comply with GPL-3 notice (add info about no waranty, etc.)
