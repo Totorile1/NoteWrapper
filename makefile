@@ -1,29 +1,43 @@
+# Configuration
 CONFIG_DIR := $(HOME)/.config/notewrapper
 CONFIG_FILE := $(CONFIG_DIR)/config.json
-CC = gcc
-SRC = startup.c
-TARGET = notewrapper
-CFLAGS = -Wall -O2 `pkg-config --cflags libcjson ncurses`
-LDFLAGS = `pkg-config --libs libcjson ncurses`
+
+# Compiler and flags
+CC := gcc
+CFLAGS := -Wall -O2 `pkg-config --cflags libcjson ncurses`
+LDFLAGS := `pkg-config --libs libcjson ncurses`
 DEBUG ?= 0
+
 ifeq ($(DEBUG),1)
-CFLAGS += -g
+    CFLAGS += -g
 endif
+
+# Sources and target
+SRC_DIR := src
+SRC := $(SRC_DIR)/main.c $(SRC_DIR)/ui.c $(SRC_DIR)/utils.c
+TARGET := notewrapper
+
+# Phony targets
 .PHONY: all clean run install_config
 
-# existing targets
+# Default target
 all: install_config $(TARGET)
 
+# Build target
 $(TARGET): $(SRC)
 	@$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	@echo "Built $(TARGET) successfully."
 
+# Run program
 run: $(TARGET)
 	@./$(TARGET)
 
+# Clean build artifacts
 clean:
 	@rm -f $(TARGET)
+	@echo "Cleaned $(TARGET)."
 
-# new target for configuration
+# Install default config if it does not exist
 install_config:
 	@mkdir -p $(CONFIG_DIR)
 	@if [ ! -f $(CONFIG_FILE) ]; then \
