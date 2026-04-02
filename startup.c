@@ -90,7 +90,7 @@ char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, char *bypass,
   }
   if (debug) {printf("\e[0;32m[DEBUG]\e[0m sanitize(fileName)=%s\n", fileName);} // (TODO LATER) Check if dirToVault+vaultFromDir+fileName > PATH_MAX
 
-  char *fileFullPath = malloc(PATH_MAX); // this dinamically allocated because we use it in the main function to call openNvim
+  char *fileFullPath = malloc(PATH_MAX); // this dinamically allocated because we use it in the main function to call openEditor
   sprintf(fileFullPath, "%s/%s/%s", dirToVault, vaultFromDir, fileName);
   FILE *filePointer;
   filePointer = fopen(fileFullPath, "w"); // creates and opens the file
@@ -315,22 +315,41 @@ char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, siz
 }
 
 
-int openNvim(char *path, int debug) {
+int openEditor(char *path, char *editor, int render, int endOfFile, int debug) {
   pid_t pid = fork(); // this forking allows the programs to return when nvim is closed
   if (pid < 0) {
     perror("\e[0;31mERROR: fork failed\e[0m\n");
     return 1;
   } else if (pid == 0) {
-    // Child process: replace with nvim
+      // Child process: replace with editor of choice
+    if (strcmp(editor, "neovim") == 0) { 
     //(TODO LATER) we should (with a config option) append a new line every time it opens
-    if (debug) {printf("\e[0;32m[DEBUG]\e[0m Opening with command:\nnvim +:NvimTreeOpen %s\n", path);}
-    execlp("nvim",
-           "nvim",
-           "+:$", // goes to end of the line // we can specify each argument for nvim by passing more args to execlp
-           path,
-           NULL);
-    perror("\e[0;31mERROR: execlp failed. Nvim might be not installed or not in path.\e[0m\n");
-    exit(1);
+      if (render) { // don't render using vivify
+        if (endOfFile) { // goes to the end of the file on opening. (TODO LATER) find a better way to do this loops. Maybe an array of args and if () we add the arg to the array and we pass the whole array to execlp
+          if (debug) {printf("\e[0;32m[DEBUG]\e[0m Opening with command:\nnvim +:$ +:Vivify %s\n", path);} // :$ goes to the end of the file. :Vivify runs vivify
+            execlp("nvim", "nvim", "+:$", "+:Vivify", path, NULL);
+            perror("\e[0;31mERROR: execlp failed. Nvim might be not installed or not in path.\e[0m\n"); // (TODO LATER) We should verify at the start when the editor is choosen if it exists
+            exit(1); // (TODO LATER) This exist only if error or everytime. If it does every time change to exit(0);
+        } else { // don't go to the end of the file
+          if (debug) {printf("\e[0;32m[DEBUG]\e[0m Opening with command:\nnvim +:Vivify %s\n", path);}
+            execlp("nvim", "nvim", "+:Vivify", path, NULL);
+            perror("\e[0;31mERROR: execlp failed. Nvim might be not installed or not in path.\e[0m\n"); // (TODO LATER) We should verify at the start when the editor is choosen if it exists
+            exit(1);
+        }
+      } else { // don't render using vivify
+        if (endOfFile) { // go to end of the file on opening
+          if (debug) {printf("\e[0;32m[DEBUG]\e[0m Opening with command:\nnvim +:$ %s\n", path);}
+            execlp("nvim", "nvim", "+:$", path, NULL);
+            perror("\e[0;31mERROR: execlp failed. Nvim might be not installed or not in path.\e[0m\n"); // (TODO LATER) We should verify at the start when the editor is choosen if it exists
+            exit(1);
+        } else { // don't go to the end of the file on opening
+          if (debug) {printf("\e[0;32m[DEBUG]\e[0m Opening with command:\nnvim %s\n", path);}
+            execlp("nvim", "nvim", path, NULL);
+            perror("\e[0;31mERROR: execlp failed. Nvim might be not installed or not in path.\e[0m\n"); // (TODO LATER) We should verify at the start when the editor is choosen if it exists
+            exit(1);
+        }
+      }
+    }
   } else {
     // Parent process: wait for child to finish
     int status;
@@ -369,7 +388,8 @@ int main(int argc, char *argv[]) {
       printf("\e[0;31mERROR: the config file (\e[0;32m$/.config/notewrapper/config.json\e[0;31m) does not exist.\nCompiling the program with \e[0;32mmake\e[0;31m should solve this error.\e[0m\n");
       exit(1);
     }
-
+    
+    // (TODO LATER) This might lack of debug info
     // opens config.json
     FILE *f = fopen(configPath, "r");
     if (!f) {
@@ -421,7 +441,24 @@ int main(int argc, char *argv[]) {
       // default vault path if it is not set in the config
       snprintf(notesDirectoryString, PATH_MAX, "%s/Documents/Notes/", homedir);
     }
-    //cleans up
+
+    // fetch the render and jumpToEnfOfFileOnLaunch bools // (TODO LATER) For all this JSON output warnings if there is some json but not the expected type. And add a warning if unsupported editor. if warning -> default
+    int shouldRender = 1;
+    cJSON *shouldRenderJSON = cJSON_GetObjectItem(json, "render");
+    if (shouldRenderJSON && cJSON_IsBool(shouldRenderJSON)) {
+        shouldRender = cJSON_IsTrue(shouldRenderJSON) ? 1 : 0;
+    }
+    int shouldJumpToEnd = 1;
+    cJSON *shouldJumpToEndJSON = cJSON_GetObjectItem(json, "jumpToEndOfFileOnLaunch");
+    if (shouldJumpToEndJSON && cJSON_IsBool(shouldJumpToEndJSON)) {
+      shouldJumpToEnd = cJSON_IsTrue(shouldJumpToEndJSON) ? 1 : 0;
+    }
+    char *editorToOpen = "neovim"; // default
+    cJSON *editorToOpenJSON = cJSON_GetObjectItem(json, "editor");
+    if (editorToOpenJSON || cJSON_IsString(editorToOpenJSON)) {
+      editorToOpen = strdup(editorToOpenJSON->valuestring); // we must strdup and not just = as we will free all the json after (before parsing args)
+    }
+    //cleans up 
     cJSON_Delete(json);
     free(data);
     //---------------------------------------------------------------------------------------------
@@ -438,11 +475,17 @@ int main(int argc, char *argv[]) {
           printf("Options:\n");
           printf("  -d, --directory <path/to/directory>         Specify the vaults' directory.\n");
           printf("  -h, --help                                  Display this message.\n");
+          printf("  -e, --editor                                Specify the editor to open.\n");
+          printf("  -j, --jump                                  Jumps to the end of the file on opening.\n");
+          printf("  -J, --no-jump                               Do not jump to the end of the file\n");
           printf("  -n, --note  <note's name>                   Specify the note.");
+          printf("  -r, --render                                Renders the note with Vivify.\n");
+          printf("  -R, --no-render                             Do not render.\n");
           printf("  -v, --vault <vault's name>                  Specify the vault.\n");
           printf("  --version                                   Display the program version.\n");
           printf("  -V, --verbose                               Show debug information.\n");
           return 1;
+        // (TODO LATER) Organize alphabetically these conditions
         } else if (strcmp(argv[i], "--version") == 0) {
           printf("There is still no released version\n");
           return 0;
@@ -461,6 +504,16 @@ int main(int argc, char *argv[]) {
             bypassNoteSelection = argv[i+1];
           }
 
+        } else if (strcmp(argv[i], "-j") == 0 || strcmp(argv[i], "--jump") == 0) {
+          shouldJumpToEnd = 1;
+        } else if (strcmp(argv[i], "-J") == 0 || strcmp(argv[i], "--no-jump") == 0) {
+          shouldJumpToEnd = 0;
+        } else if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--render") == 0) {
+          shouldRender = 1;
+        } else if (strcmp(argv[i], "-R") == 0 || strcmp(argv[i], "--no-render") == 0) {
+          shouldRender = 0;
+        } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--editor") == 0) {
+          editorToOpen = argv[i+1];
         }
     }
 
@@ -554,12 +607,12 @@ open_note:
             bypassNoteSelection =  HASH_MACRO; // we must reset bypassNoteSelection to avoid getting into an infinite loop of bypassing the note selection
             char fullPath[PATH_MAX]; // (TODO LATER) Find a more appropriate and descriptive name for the variable
             sprintf(fullPath, "%s/%s/%s", notesDirectoryString, vaultSelected, noteSelected); // (TODO LATER) change all sprintf to snprintf which checks for buffer size
-            openNvim(fullPath, debug);
+            openEditor(fullPath, editorToOpen, shouldRender, shouldJumpToEnd, debug);
           } else if (strcmp(noteSelected,"Create new note") == 0) {
 note_creation:
             char *pathForNoteCreation = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, debug);
             bypassNoteSelection =  HASH_MACRO; // we must reset bypassNoteSelection to avoid getting into an infinite loop of bypassing the note selection
-            openNvim(pathForNoteCreation, debug);
+            openEditor(pathForNoteCreation, editorToOpen, shouldRender, shouldJumpToEnd, debug);
             //free(pathForNoteCreation);
           } else if (strcmp(noteSelected,"Back to vault selection") == 0) {
             shouldChangeVault = 1;
@@ -585,7 +638,7 @@ note_creation:
         createNewVault(notesDirectoryString, debug);
       } else if (strcmp(vaultSelected,"Settings") == 0) {
         // (TODO LATER) add a way to modify the path to config.json
-        openNvim(configPath, debug);
+        openEditor(configPath, editorToOpen, 0, 0, debug); // as this is not a md file we set render and jumptoEnfOfFile to 0
       } else if (strcmp(vaultSelected,"Quit (Ctrl+C)") == 0) {
         if (debug) {printf("\e[0;32m[DEBUG]\e[0m The program was exited.\n");}
         shouldExit = 1;

@@ -1,6 +1,6 @@
 {
-  "directory": "$/Documents/Notes/"
-
-
-
+  "directory": "$/Documents/Notes/",
+  "render": true,
+  "jumpToEndOfFileOnLaunch": true,
+  "editor": "neovim"
 }

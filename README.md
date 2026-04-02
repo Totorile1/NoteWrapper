@@ -19,6 +19,9 @@ make
 4. configure `./config.json`
 5. run the binary `notewrapper`
 
+### Usage
+If you want to render with Vivify with the flags `-r`, `--render` or with the option in the config file, you must have installed the plugins for your specific editor ([for Vim and Neovim](https://github.com/jannis-baum/vivify.vim))
+
 ### Configuration
 Change `$/.config/notewrapper/config.json`. If it does not exist. On building, it should copy a default config.
 
@@ -27,17 +30,18 @@ Change `$/.config/notewrapper/config.json`. If it does not exist. On building, i
 - [x] Add a way to delete vaults
 - [ ] Add a way to delete notes
 - [x] Stylisize a bit the TUI
-- [ ] Add more options to the config file
+- [x] Add more options to the config file
 - [x] Search for config.json in other directories such as ~/.config/notewrapper/ and not only this directory
 - [x] Port vivify.vim to nixpkgs
 - [ ] Add a way to have vaults in different directories
-- [ ] Actually open vivify when opening nvim
+- [x] Actually open vivify when opening nvim
 - [ ] Write the journaling code (separate files or one big journal files)
 - [ ] Automatic backups
-- [ ] Add flags for customization
+- [x] Add flags for customization
 - [ ] Write a good README.md
-- [ ] Option to not render and to only open nvim
+- [x] Option to not render and to only open nvim
 - [ ] Figure out this vivify issue https://github.com/jannis-baum/Vivify/issues/291
 - [ ] Maybe port this to other editors
+- [ ] Port to vim
 - [ ] Fixe all the small stuff marked //(TODO LATER) in the code
 - [ ] Add a way to delete notes
