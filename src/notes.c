@@ -202,6 +202,7 @@ char *updateJournal(char *path, char *journal, char *timeFormat, int shouldDebug
           debug("Writing %s\\n to %s", date, path);
           fprintf(file, "%s\n", date);
           fclose(file);
+          free(createEntryMessage);
         }
       } else { // we just recreate the path to the selected entry
         // snprintf does not like to have the same variable as input and output so we use a buffer
