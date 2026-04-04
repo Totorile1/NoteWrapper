@@ -16,28 +16,39 @@
 int main(int argc, char *argv[]) {
 
     int shouldDebug = 0;
-    // all of the argument parsing is done after so flags overwrite config options. The only config options that can't be set in the config is the shouldDebug
+    int overwriteConfigPath = 0; 
+    // (TODO LATER) we really should change all the HASH_MACRO to an int that checks if it is overwritten and a char* that stores to the string
+    // all of the argument parsing is done after so flags overwrite config options. The only config options that can't be set in the config is the shouldDebug and specifing the path to the config
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--verbose") == 0) {
             shouldDebug = 1;
-        }
+        } if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) {
+          error(i + 1 == argc, "user", "Missing argument. Please use -c <path/to/config> or --c <path/to/config>");
+          // if we overwrite the config path we change overwriteConfigPath to i.
+          overwriteConfigPath = i + 1;
+        } 
     }
-
-    //---------------------------------------------------------------------------------------------
-    //---------------------------------------------------------------------------------------------
-    // this part handles the config.json file
-    
     // gets the home directory
     struct passwd *pw = getpwuid(getuid());
     const char *homedir = pw->pw_dir;
-    //(TODO LATER) maybe add a flag to specify path to config 
+ 
+    //---------------------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------------------
+    
+    // this part handles the config.json file
+    // gets the home directory
+    char *configPath = malloc(PATH_MAX);
+    if (overwriteConfigPath) {
+      configPath = argv[overwriteConfigPath];
+      debug("-c or --config specified the config file %s", configPath);
+    } else {
+      snprintf(configPath, PATH_MAX, "%s/.config/notewrapper/config.json", homedir);
+      debug("Path to the config file is %s", configPath);
+    }
     // check if the config file exists
-    char configPath[PATH_MAX];
-    snprintf(configPath, sizeof(configPath), "%s/.config/notewrapper/config.json", homedir);
-    debug("Path to the config file is %s", configPath);
-    error(stat(configPath, &(struct stat){0}) == -1, "program", "The config file %s does not exist.\nMaybe try the default path to the config ~/.config/notewrapper/config.json\nIf it still does not work, compiling the program with make should create a valid config file.", configPath); // if the config directory does not exist
+    struct stat st = {0};
+    error(stat(configPath, &st) == -1, "program", "The config file %s does not exist.\nMaybe try the default path to the config ~/.config/notewrapper/config.json\nOr if you used the flag -c or --config, verifiy that you point to the correct file.\nIf it still does not work, compiling the program with make should create a valid config file in ~/.config/notewrapper.", configPath); // if the config directory does not exist
 
-    // (TODO LATER) This might lack of shouldDebug info
     // opens config.json
     FILE *f = fopen(configPath, "r");
     error(!f, "program", "The config file does exist, but can not be open.");
@@ -58,12 +69,12 @@ int main(int argc, char *argv[]) {
     fclose(f);
 
     // parse the JSON
-    
+    debug("Parsing the JSON config");
+
     cJSON *json = cJSON_Parse(data);
     if (!json) {free(data);}
     error(!json, "program", "JSON parse error");
     
-    // (TODO LATER) maybe add a default vault option
     cJSON *dirJson = cJSON_GetObjectItem(json, "directory");
     char *notesDirectoryString = malloc(PATH_MAX);
     if (dirJson && cJSON_IsString(dirJson) && dirJson->valuestring != NULL) {
@@ -73,12 +84,14 @@ int main(int argc, char *argv[]) {
       } else {
         notesDirectoryString = rawPath;
       }
+      debug("config.json's vault's directory is %s", notesDirectoryString);
     } else {
       // default vault path if it is not set in the config
       snprintf(notesDirectoryString, PATH_MAX, "%s/Documents/Notes/", homedir);
+      debug("the vault's directory is not set in the config file. Using default %s", notesDirectoryString);
     }
-
-    // fetch the render and jumpToEnfOfFileOnLaunch bools // (TODO LATER) For all this JSON output warnings if there is some json but not the expected type. And add a warning if unsupported editor. if warning -> default
+  
+    // fetch the render and jumpToEnfOfFileOnLaunch bools
     int shouldRender = 1;
     cJSON *shouldRenderJSON = cJSON_GetObjectItem(json, "render");
     if (shouldRenderJSON && cJSON_IsBool(shouldRenderJSON)) {
@@ -95,7 +108,7 @@ int main(int argc, char *argv[]) {
     cJSON *editorToOpenJSON = cJSON_GetObjectItem(json, "editor");
     if (editorToOpenJSON && cJSON_IsString(editorToOpenJSON)) {
       debug("Editor in config.json is %s", editorToOpenJSON->valuestring);
-      error(!isStringInArray(editorToOpenJSON->valuestring, supportedEditor, numEditors), "user", "%s (fetched from config.json) is not a supported editor.");
+      error(!isStringInArray(editorToOpenJSON->valuestring, supportedEditor, numEditors), "user", "%s (fetched from config.json) is not a supported editor.", editorToOpenJSON->valuestring);
       editorToOpen = strdup(editorToOpenJSON->valuestring); // we must strdup and not just = as we will free all the json after (before parsing args)
     } else {debug("config.json did not contained a correct \"editor\" value. The default is neovim.");}
     
@@ -123,63 +136,71 @@ int main(int argc, char *argv[]) {
     //cleans up 
     cJSON_Delete(json);
     free(data);
+    debug("Finished parsing the JSON config");
     //---------------------------------------------------------------------------------------------
     //---------------------------------------------------------------------------------------------
     
     // flags and arguments overwrite the config
     // (TODO LATER) maybe add a way to combine flags (such which rm -fr?)
     // (TODO LATER) add a version flag
-    // (TODO LATER) separate -n for journals from notes
+    debug("Parsing the attribute flags.\n This flags might overwrite the options in the config file.");
     char *bypassVaultSelection = HASH_MACRO; // (TODO LATER) find a better idea. If later it detects other string than that 256 string. It will bypass the selection
     char *bypassNoteSelection = HASH_MACRO;
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+      if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--directory") == 0) {
+          error(i+1==argc, "user", "Missing argument. Please use -d <path/to/directory> or --directory <path/to/directory>.");
+          notesDirectoryString = argv[i+1];
+          // (TODO LATER) does it works with .. and . if the dir exists?  
+      } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
           printf("Usage: notewrapper [options]\n");
           printf("Options:\n");
+          printf("  -c, --config <path/to/config>               Specify the config file.\n");
           printf("  -d, --directory <path/to/directory>         Specify the vaults' directory.\n");
           printf("  -h, --help                                  Display this message.\n");
           printf("  -e, --editor                                Specify the editor to open.\n");
           printf("  -j, --jump                                  Jumps to the end of the file on opening.\n");
           printf("  -J, --no-jump                               Do not jump to the end of the file\n");
-          printf("  -n, --note  <note's name>                   Specify the note.");
+          printf("  -n, --note  <note's name>                   Specify the note (or journal).");
           printf("  -r, --render                                Renders the note with Vivify.\n");
           printf("  -R, --no-render                             Do not render.\n");
           printf("  -v, --vault <vault's name>                  Specify the vault.\n");
           printf("  --version                                   Display the program version.\n");
           printf("  -V, --verbose                               Show debug information.\n");
           return 1;
-        // (TODO LATER) Organize alphabetically these conditions
-        } else if (strcmp(argv[i], "--version") == 0) {
-          printf("There is still no released version\n");
-          return 0;
-        } else if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--directory") == 0) {
-          error(i+1==argc, "user", "Missing argument. Please use -d <path/to/directory> or --directory <path/to/directory>.");
-          notesDirectoryString = argv[i+1];
-          // (TODO LATER) Add a check if there is a arg after, if it is a directory, expand $, work with . and .., check if there is a dir.
-          // it works with .. and . if the dir exists
-          // (TODO LATER) Add shouldDebug info for this flag and others
-        } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--vault") == 0) {
-          error(i+1==argc, "user", "Missing argument. Pleaase use -v <vault's name> or --vault <vault's name>");
-          bypassVaultSelection = argv[i+1]; // (TODO LATER) Add security checks pass ti strndup. and if vault don't exist create one. SEE (TODO LATER) where bypassVaultSelection is checked
-        } else if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--note") == 0) { // (TODO LATER) Broken if we put the -v flag after the -n flag
-          error(i+1==argc, "user", "Missing argument. Please user -n <note's name> or --note <note's name>.");
-          error(strcmp(bypassVaultSelection, HASH_MACRO) == 0, "user", "If you want to specify the note, you must also specify the vault with -v <vault's name> or --vault <vault's name>.");
-          bypassNoteSelection = argv[i+1];
-        } else if (strcmp(argv[i], "-j") == 0 || strcmp(argv[i], "--jump") == 0) {
-          shouldJumpToEnd = 1;
-        } else if (strcmp(argv[i], "-J") == 0 || strcmp(argv[i], "--no-jump") == 0) {
-          shouldJumpToEnd = 0;
-        } else if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--render") == 0) {
-          shouldRender = 1;
-        } else if (strcmp(argv[i], "-R") == 0 || strcmp(argv[i], "--no-render") == 0) {
-          shouldRender = 0;
-        } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--editor") == 0) {
+      } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--editor") == 0) {
           error(i+1==argc, "user", "Missing argument. Please use -e <editor> or --editor <editor>.");
           editorToOpen = argv[i+1];
           debug("Editor specified with -e or --editor is %s", editorToOpen);
-        }
+          error(!isStringInArray(editorToOpen, supportedEditor, numEditors), "user", "%s (specified with -e or --editor) is not a supported editor.", editorToOpen);
+      } else if (strcmp(argv[i], "-j") == 0 || strcmp(argv[i], "--jump") == 0) {
+          debug("-j or --jump set jumpToEnfOfFileOnLaunch to true");
+          shouldJumpToEnd = 1;
+      } else if (strcmp(argv[i], "-J") == 0 || strcmp(argv[i], "--no-jump") == 0) {
+          debug("-j or --jump set jumpToEnfOfFileOnLaunch to false"); 
+          shouldJumpToEnd = 0;
+      } else if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--note") == 0) { // (TODO LATER) Broken if we put the -v flag after the -n flag
+          error(i+1==argc, "user", "Missing argument. Please user -n <note's name> or --note <note's name>.");
+          bypassNoteSelection = argv[i+1];
+      } else if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--render") == 0) {
+          debug("-r or --render set shouldRender to true");
+          shouldRender = 1;
+      } else if (strcmp(argv[i], "-R") == 0 || strcmp(argv[i], "--no-render") == 0) {
+          shouldRender = 0;
+          debug("-r or --render set shouldRender to false");
+      } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--vault") == 0) {
+          error(i+1==argc, "user", "Missing argument. Pleaase use -v <vault's name> or --vault <vault's name>");
+          bypassVaultSelection = argv[i+1]; // (TODO LATER) Add security checks pass ti strndup. and if vault don't exist create one. SEE (TODO LATER) where bypassVaultSelection is checked (TODO LATER) Add check if vault exist
+      } else if (strcmp(argv[i], "--version") == 0) {
+          printf("There is still no released version\n");
+          return 0;
+      }
     }
+    // if -n or --note is set but note -v or --vaults
+    error(strcmp(bypassVaultSelection, HASH_MACRO) == 0 && strcmp(bypassNoteSelection, HASH_MACRO) != 0, "user", "If you want to specify the note, you must also specify the vault with -v <vault's name> or --vault <vault's name>.");
+
+
     error(!doesEditorExist(editorToOpen, shouldDebug), "user", "%s is either not in your path or not installed.", editorToOpen);
+    debug("Finished parsing the attribute flags");
 
     int shouldExit = 0;
     while(!shouldExit) {
@@ -297,14 +318,6 @@ note_creation:
             noteSelected = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, journalRegex, shouldDebug);
             // we can just go back to open_note
             goto open_note;
-            /*char *pathForNoteCreation = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, shouldDebug);
-            // (TODO LATER) Handle journal creation
-            bypassNoteSelection =  HASH_MACRO; // we must reset bypassNoteSelection to avoid getting into an infinite loop of bypassing the note selection
-            if (newLineOnOpening) {
-              appendToFile(pathForNoteCreation, "\n", shouldDebug);
-            }
-            openEditor(pathForNoteCreation, editorToOpen, shouldRender, shouldJumpToEnd, shouldDebug);
-            //free(pathForNoteCreation);*/
           } else if (strcmp(noteSelected,"Back to vault selection") == 0) {
             shouldChangeVault = 1;
           } else if (strcmp(noteSelected, "Delete vault") == 0) {
@@ -335,5 +348,6 @@ note_creation:
         shouldExit = 1;
       }
     }
+    free(configPath);
     return 0;
 }

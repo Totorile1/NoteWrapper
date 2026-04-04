@@ -37,7 +37,7 @@ Change `$/.config/notewrapper/config.json`. If it does not exist. On building, i
 - [ ] Add a way to have vaults in different directories
 - [x] Actually open vivify when opening nvim
 - [x] Write the journaling code (separate files or one big journal files)
-- [ ] Adapt createNewNote with journals
+- [x] Adapt createNewNote with journals
 - [ ] Automatic backups
 - [x] Add flags for customization
 - [ ] Write a good README.md
