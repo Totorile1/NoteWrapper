@@ -210,7 +210,7 @@ int main(int argc, char *argv[]) {
         vaultSelected = bypassVaultSelection;
           goto note_selection;
       }
-      vaultSelected = ncursesSelect(vaultsArray, "vault", vaultsCount, extraOptions, " ", "Or select an option below", "", shouldDebug);
+      vaultSelected = ncursesSelect(vaultsArray, "Select vault to open (Use arrows or WASD, Enter to select):", vaultsCount, extraOptions, " ", "Or select an option below", "", shouldDebug);
      
       // now that we won't use vaultsArray in this iteration of the loop, we should free it and all its elements. (As this is memory in the heap and not the stack and thus is our responsability to manage)
       for (int i = 0; i < vaultsCount; i++) {
@@ -264,7 +264,7 @@ note_selection:
               goto note_creation;
             }
           }
-          noteSelected = ncursesSelect(filesArray, "note or journal", filesCount, extraNotesOptions, " ", "Or select an option below", "", shouldDebug);
+          noteSelected = ncursesSelect(filesArray, "Select note or journal to open (Use arrows or WASD, Enter to select):", filesCount, extraNotesOptions, " ", "Or select an option below", "", shouldDebug);
           // now that we won't use filesArray in this iteration of the loop, we should free it and all its elements. (As this is memory in the heap and not the stack and thus is our responsability to manage)
           for (int i = 0; i < filesCount; i++) {
             if (noteSelected != filesArray[i]) { // we must prevent noteSelected to be freed. It will cause a lot of problems
@@ -306,7 +306,7 @@ note_creation:
             shouldChangeVault = 1;
           } else if (strcmp(noteSelected, "Delete vault") == 0) {
             const char *yesNo[] = {"No, go back to note selection.", "Yes."};
-            char *answer = ncursesSelect((char **)yesNo, "Are you sure you want to delete the entire vault? This can not be undone.", 1, 1, " ", "", "", shouldDebug); // (TODO LATER) This is ugly with Select Are you sure[...]
+            char *answer = ncursesSelect((char **)yesNo, "Are you sure you want to delete the entire vault? This can not be undone (Use arrows or WASD, Enter to select):", 1, 1, " ", "", "", shouldDebug); // (TODO LATER) This is ugly with Select Are you sure[...]
             debug("You answered: %s for deleting the vault %s", answer, vaultSelected);
             if (strcmp(answer, "Yes.") == 0) {
               // delete the vault after confirmation by the user

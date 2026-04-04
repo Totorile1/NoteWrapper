@@ -103,7 +103,7 @@ char* ncursesSelect(char **options, char *optionsText, size_t optionsNumber, siz
     while (1) {
       clear();
       attron(COLOR_PAIR(1));
-      mvprintw(0,0, "Select %s (Use arrows or WASD, Enter to select):", optionsText);
+      mvprintw(0,0, "%s", optionsText);
       int offset = 1;
       if (strcmp(bottomText, "") != 0) {
         mvprintw(offset, 1, "%s", bottomText);

@@ -185,7 +185,7 @@ char *updateJournal(char *path, char *journal, char *timeFormat, int shouldDebug
       // free's some used memory
       closedir(dividedJournalDirectory);
       // we must now select to create new entry or to enter in old one
-      char *selectedOption = ncursesSelect(entryArray, "Create new entry or acces old entry:", 1, entryCount -1, " ", " ", "", shouldDebug); // the "Create new entry for the journal %s" will be the only options. All other will be extraOptions. This is made so that "Create [...] %s" will always be on top
+      char *selectedOption = ncursesSelect(entryArray, "Create new entry or acces old entry (Use arrows or WASD, Enter to select):", 1, entryCount -1, " ", " ", "", shouldDebug); // the "Create new entry for the journal %s" will be the only options. All other will be extraOptions. This is made so that "Create [...] %s" will always be on top
       debug("Selected option from journal entry selection: %s", selectedOption);
       if (strcmp(selectedOption, createEntryMessage) == 0) { // create new entry
         char temp[PATH_MAX];
