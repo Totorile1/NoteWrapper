@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
           printf("  -r, --render                                Renders the note with Vivify.\n");
           printf("  -R, --no-render                             Do not render.\n");
           printf("  -v, --vault <vault's name>                  Specify the vault.\n");
-          printf("  --version                                   Display the program version.\n");
+          printf("  --version                                   Display the program version and the GPL3 notice.\n");
           printf("  -V, --verbose                               Show debug information.\n");
           return 1;
       } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--editor") == 0) {
@@ -191,8 +191,10 @@ int main(int argc, char *argv[]) {
           error(i+1==argc, "user", "Missing argument. Pleaase use -v <vault's name> or --vault <vault's name>");
           bypassVaultSelection = argv[i+1]; // (TODO LATER) Add security checks pass ti strndup. and if vault don't exist create one. SEE (TODO LATER) where bypassVaultSelection is checked (TODO LATER) Add check if vault exist
       } else if (strcmp(argv[i], "--version") == 0) {
-          printf("There is still no released version\n");
+          printf("There is still no released version\n\n     Copyright (C) 2026 Tomás Rivera\n     License GPLv3: GNU GPL version 3 <https://gnu.org/licenses/gpl.html>.\n     This is free software: you are free to change and redistribute it.\n     There is NO WARRANTY, to the extent permitted by law.\n\n     Written by Tomás Rivera.\n");
           return 0;
+      } else if (argv[i][0] == '-') {
+          error(1, "user", "unexpected argument \"%s\" found\nFor more information, try \"--help\".", argv[i]);
       }
     }
     // if -n or --note is set but note -v or --vaults
@@ -219,7 +221,6 @@ int main(int argc, char *argv[]) {
       // adds "create a new vault" into the vaultsArray
       const int extraOptions = 3;
       vaultsArray = realloc(vaultsArray, (vaultsCount + extraOptions)*sizeof(char*)); // resize vaultsArray to fit the extra options
-      // (TODO LATER) add a way to Colorize the extraOptions
       vaultsArray[vaultsCount] = "Create a new vault"; // some more options that are not vaults
       vaultsArray[vaultsCount+1] = "Settings";
       vaultsArray[vaultsCount+2] = "Quit (Ctrl+C)";

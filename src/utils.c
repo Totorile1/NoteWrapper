@@ -3,8 +3,6 @@
 const char *supportedEditor[] = {"neovim", "vim"};
 const int numEditors = 2;
 
-//(TODO LATER) We should write a debug() function and an error(function)
-
 int compareString(const void *a, const void *b) {
     const char *str1 = *(const char **)a;
     const char *str2 = *(const char **)b;
@@ -114,14 +112,34 @@ int isStringInFile(const char *path, const char *string, const int shouldDebug) 
   debug("The string %s is not inside %s", string, path);
   return 0;
 }
-
 void appendToFile(const char *path, const char *string, const int shouldDebug) {
-  // (TODO LATER) we should check if it is not already at the end and not append. (Usefull for \n)
-  FILE *file = fopen(path, "a");
-  error(file == NULL, "program", "could not open %s", path);
-  fprintf(file, "%s", string);
-  fclose(file);
-  debug("%s was appended to %s succesfully", string, path);
+    FILE *file = fopen(path, "r");
+    char lastLine[1024] = {0};
+    error(file == NULL, "program", "could not open %s", path);
+    char buffer[BUFFER_SIZE]; // it does not matter if we have a small buffer. string is relatively small (most time \n or the name of the file). So it is under BUFFER_SIZE. If the last line is more than BUFFER_SIZE. It can't be equal to string
+
+    // Read file line by line to get the last one
+    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+        strncpy(lastLine, buffer, sizeof(lastLine) - 1);
+    }
+    fclose(file);
+
+    // Compare last line with string
+    if (strcmp(lastLine, string) == 0) {
+        if (shouldDebug) {
+            debug("Skipping append: last line already matches \"%s\"", string);
+        }
+        return;
+    }
+
+    // Append since it's different
+    file = fopen(path, "a");
+    error(file == NULL, "program", "could not open %s", path);
+
+    fprintf(file, "%s", string);
+    fclose(file);
+
+    debug("\"%s\" was appended to %s successfully", string, path);
 }
 
 void sanitize(char *string) {
@@ -151,18 +169,16 @@ int rmrf(char *path) {
 }
 
 
-int openEditor(char *path, char *editor, int render, int endOfFile, int shouldDebug) {
+int openEditor(char *path, char *editor, int render, int shouldJumpToEndOfFile, int shouldDebug) {
   // (TODO LATER) Bug app breaks if browser was not already launched before vivify
-  // (TODO LATER) find better name for endOfFile
-  //(TODO LATER) for nvim and vim we should check if there is swap files or recovery files and handle that
+  // (TODO LATER) for nvim and vim we should check if there is swap files or recovery files and handle that
   pid_t pid = fork(); // this forking allows the programs to return when nvim is closed
   error(pid<0, "program", "fork() failed.");
   if (pid == 0) {
       // Child process: replace with editor of choice
     if (strcmp(editor, "neovim") == 0) { // opens with Neovim 
-    //(TODO LATER) we should (with a config option) append a new line every time it opens
       if (render) { // don't render using vivify
-        if (endOfFile) { // goes to the end of the file on opening. (TODO LATER) find a better way to do this loops. Maybe an array of args and if () we add the arg to the array and we pass the whole array to execlp
+        if (shouldJumpToEndOfFile) { // goes to the end of the file on opening.
           // :$ goes to the end of the file. :Vivify runs vivify
           debug("Running nvim +:$ +:Vivify %s", path);
           execlp("nvim", "nvim", "+:$", "+:Vivify", path, NULL);
@@ -173,7 +189,7 @@ int openEditor(char *path, char *editor, int render, int endOfFile, int shouldDe
           error(1, "program", "execlp() failed.");
         }
       } else { // don't render using vivify
-        if (endOfFile) { // go to end of the file on opening
+        if (shouldJumpToEndOfFile) { // go to end of the file on opening
           debug("Running nvim +:$ %s", path);
           execlp("nvim", "nvim", "+:$", path, NULL);
           error(1, "program", "execlp() failed.");
@@ -184,9 +200,8 @@ int openEditor(char *path, char *editor, int render, int endOfFile, int shouldDe
         }
       }
     } else if (strcmp(editor, "vim") == 0) { // opens with Vim // see comments for neovim for explanations
-    //(TODO LATER) we should (with a config option) append a new line every time it opens
       if (render) {
-        if (endOfFile) {
+        if (shouldJumpToEndOfFile) {
           debug("Running vim +:$ +:Vivify %s", path);  
           execlp("vim", "vim", "+:$", "+:Vivify", path, NULL);
           error(1, "program", "execlp() failed.");
@@ -196,7 +211,7 @@ int openEditor(char *path, char *editor, int render, int endOfFile, int shouldDe
           error(1, "program", "execlp() failed.");
         }
       } else {
-        if (endOfFile) {
+        if (shouldJumpToEndOfFile) {
           debug("Running vim +:$ %s", path);  
           execlp("vim", "vim", "+:$", path, NULL);
           error(1, "program", "execlp() failed.");

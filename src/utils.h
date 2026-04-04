@@ -56,10 +56,10 @@ void sanitize(char *string);
 int rmrf(char *path);
 //from https://stackoverflow.com/a/5467788
 //deletes an entire directory. Use with parsimony and carefullness
-int openEditor(char *path, char *editor, int render, int endOfFile, int debug);
+int openEditor(char *path, char *editor, int render, int shouldJumpToEndOfFile, int debug);
 // Inputs are the path to the file, the editor to open and some rendering option
 // render: if we render the .md file with Vivify
-// endOfFile: if we put the cursor at the end of the file when opening
+// shouldJumpToEndOfFile: if we put the cursor at the end of the file when opening
 // The program resumes when the editor is closed
 char *getFormatedTime(char *format, int shouldDebug);
 // see https://pubs.opengroup.org/onlinepubs/7908799/xsh/strftime.html? for formats
