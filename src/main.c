@@ -287,21 +287,24 @@ open_note:
               debug("%s is a journal. Updating it...", noteSelected);
               fullPath = updateJournal(fullPath, noteSelected, timeFormat, shouldDebug); // we return the path. As if it is a divided journal we must point to the correct entry
             }
-            if (newLineOnOpening) { //(TODO LATER) For some reason this does not applies to journals?
+            if (newLineOnOpening) { //(TODO LATER) For some reason this does not applies to journals? --- it does but only if we don't create a new file/entry
               appendToFile(fullPath, "\n", shouldDebug);
             }
             openEditor(fullPath, editorToOpen, shouldRender, shouldJumpToEnd, shouldDebug);
             free(fullPath);
           } else if (strcmp(noteSelected,"Create new note") == 0) {
 note_creation:
-            char *pathForNoteCreation = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, shouldDebug);
+            noteSelected = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, journalRegex, shouldDebug);
+            // we can just go back to open_note
+            goto open_note;
+            /*char *pathForNoteCreation = createNewNote(notesDirectoryString, vaultSelected, bypassNoteSelection, shouldDebug);
             // (TODO LATER) Handle journal creation
             bypassNoteSelection =  HASH_MACRO; // we must reset bypassNoteSelection to avoid getting into an infinite loop of bypassing the note selection
             if (newLineOnOpening) {
               appendToFile(pathForNoteCreation, "\n", shouldDebug);
             }
             openEditor(pathForNoteCreation, editorToOpen, shouldRender, shouldJumpToEnd, shouldDebug);
-            //free(pathForNoteCreation);
+            //free(pathForNoteCreation);*/
           } else if (strcmp(noteSelected,"Back to vault selection") == 0) {
             shouldChangeVault = 1;
           } else if (strcmp(noteSelected, "Delete vault") == 0) {

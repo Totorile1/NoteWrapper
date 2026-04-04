@@ -10,11 +10,13 @@
 #include <pwd.h>
 #include <ctype.h>
 #include <limits.h>
+#include <regex.h>
 #include "utils.h"
-char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, char *bypass, int debug);
+char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, char *bypass, char *journalRegex, int debug);
 // Uses ncurses to get an input from the user
 // Creates a new note with this input
-// returns the path to the note
+// also can create a journal if the name matches with journalRegex
+// returns the name of the note
 void createNewVault(char *dirToVault, int debug);
 // Uses ncurses to get an input from the user
 // Creates a new vault with this input  

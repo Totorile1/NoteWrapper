@@ -202,6 +202,8 @@ char *updateJournal(char *path, char *journal, char *timeFormat, int shouldDebug
           fprintf(file, "%s\n", date);
           fclose(file);
           free(createEntryMessage);
+        } else {
+          debug("Today's entry (%s) already exist. We won't create a new one.", dateWithExtension);
         }
       } else { // we just recreate the path to the selected entry
         // snprintf does not like to have the same variable as input and output so we use a buffer
