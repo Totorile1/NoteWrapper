@@ -1,5 +1,6 @@
 #include "notes.h"
 
+// (TODO LATER) Check if it isn't a know media file like .jpg, etc. more generally only text, code or markdown file should be accepted. maybe se if it is in utf8?
 char **getJournalsFromVault(char *pathToVault, char *vault, char *journalRegex,  int *count, int shouldDebug) {
     debug("Searching %s for journals", vault);
     // originally from https://www.geeksforgeeks.org/c/c-program-list-files-sub-directories-directory/
@@ -184,6 +185,8 @@ char *updateJournal(char *path, char *journal, char *timeFormat, int shouldDebug
       altDebug("└------------------------------\n");
       // free's some used memory
       closedir(dividedJournalDirectory);
+      qsort(entryArray + 1, entryCount - 1, sizeof(const char *), reverseCompareString); // sorts the journals entries alphabetically. // the + 1 - 1 is to not sort "Create new entry for the journal" which is the first element
+
       // we must now select to create new entry or to enter in old one
       char *selectedOption = ncursesSelect(entryArray, "Create new entry or acces old entry (Use arrows or WASD, Enter to select):", 1, entryCount -1, " ", " ", "", shouldDebug); // the "Create new entry for the journal %s" will be the only options. All other will be extraOptions. This is made so that "Create [...] %s" will always be on top
       debug("Selected option from journal entry selection: %s", selectedOption);

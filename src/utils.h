@@ -37,6 +37,9 @@ extern const int numEditors; // number of supported editors
 //compares two strings alphabetically.
 //this function is used for qsort
 int compareString(const void *a, const void *b);
+// compares two strings in reversed alphabetical order
+// this function is used for qsort
+int reverseCompareString(const void *a, const void *b);
 // this basically checks all the dirs from your path for the editor. This is a safety check.
 // If the executable from an editor is not the editor name (for example neovim and nvim), you must handle at the start of the function.
 int doesEditorExist(char *editorToCheck, int debug);

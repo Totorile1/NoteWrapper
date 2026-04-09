@@ -8,6 +8,11 @@ int compareString(const void *a, const void *b) {
     const char *str2 = *(const char **)b;
     return strcmp(str1, str2); // strcmp returns <0, 0, >0
 }
+int reverseCompareString(const void *a, const void *b) {
+    const char *str1 = *(const char **)a;
+    const char *str2 = *(const char **)b;
+    return -1*strcmp(str1, str2);
+}
 
 void getCurrentTime(int *hour, int *minute, int *second) {
     time_t now = time(NULL);              // Get current time in seconds since epoch

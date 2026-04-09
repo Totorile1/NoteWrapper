@@ -289,6 +289,8 @@ int main(int argc, char *argv[]) {
           goto vault_creation;
         } else {
           goto note_selection;
+          debug("[BYPASS] %s does exist. Going to note selection");
+
         }
       }
 
@@ -356,11 +358,13 @@ note_selection:
           char *noteSelected;
           // if we set to bypass the note selector
           if (bypassSelectionNote) {
-            // (TODO LATER) Add shouldDebug info
+            debug("We are bypassing note selection.");
             noteSelected = bypassSelectionNoteValue;
             if (isStringInArray(noteSelected, (const char **)filesArray, filesCount)) {// we just give filesCount and not filesCount + extraOptions to avoid matching with an extra options.
+              debug("The note specified with -n or --note does exist. Opening it.");
               goto open_note;
             } else { // if the specified note doesn't exist. We creat it
+              debug("The note specified with -n or --note doesn't exist. Creating it.");
               goto note_creation;
             }
           }
