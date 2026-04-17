@@ -1,31 +1,55 @@
 #include "ui.h"
 #include "utils.h"
 #include "notes.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <cjson/cJSON.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <pwd.h>
-#include <ftw.h>
-#include <limits.h>
-#include <ncurses.h>
 
 int main(int argc, char *argv[]) {
     int shouldDebug = 0;
     int overwriteConfigPath = 0; 
-    // all of the argument parsing is done after so flags overwrite config options. The only config options that can't be set in the config is the shouldDebug and specifing the path to the config
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-V") == 0 || strcmp(argv[i], "--verbose") == 0) {
+    char *arg = argv[i];
+
+    // Long options
+    if (strncmp(arg, "--", 2) == 0) {
+        if (strcmp(arg, "--verbose") == 0) {
             shouldDebug = 1;
-        } if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--config") == 0) {
-          error(i + 1 == argc, "user", "Missing argument. Please use -c <path/to/config> or --c <path/to/config>");
-          // if we overwrite the config path we change overwriteConfigPath to i.
-          overwriteConfigPath = i + 1;
-        } 
+
+        } else if (strcmp(arg, "--config") == 0) {
+            error(i + 1 == argc, "user",
+                  "Missing argument. Use --config <path>");
+            overwriteConfigPath = ++i; // consume argument
+
+        }
+
+    // Short options (allow grouping like -V)
+    } else if (arg[0] == '-' && arg[1] != '\0') {
+        for (int j = 1; arg[j] != '\0'; j++) {
+            char opt = arg[j];
+
+            switch (opt) {
+                case 'V':
+                    shouldDebug = 1;
+                    break;
+
+                case 'c':
+                    // must NOT be combined (needs argument)
+                    error(arg[j+1] != '\0', "user",
+                          "-c cannot be combined (use -c <path>)");
+                    error(i + 1 == argc, "user",
+                          "Missing argument for -c");
+
+                    overwriteConfigPath = ++i; // consume argument
+                    goto arg_next;
+
+                default:
+                    // ignore unknown here OR handle error
+                    break;
+            }
+        }
     }
+
+arg_next:
+    ;
+}
     // gets the home directory
     struct passwd *pw = getpwuid(getuid());
     const char *homedir = pw->pw_dir;
@@ -208,59 +232,168 @@ int main(int argc, char *argv[]) {
     char *bypassSelectionVaultValue = NULL;
     int bypassSelectionNote = 0;
     char *bypassSelectionNoteValue = NULL;
-    for (int i = 1; i < argc; i++) {
-      if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--directory") == 0) {
-          error(i+1==argc, "user", "Missing argument. Please use -d <path/to/directory> or --directory <path/to/directory>.");
-          notesDirectoryString = argv[i+1];
-          // (TODO LATER) does it works with .. and . if the dir exists?  
-      } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
-          printf("Usage: notewrapper [options]\n");
-          printf("Options:\n");
-          printf("  -c, --config <path/to/config>               Specify the config file.\n");
-          printf("  -d, --directory <path/to/directory>         Specify the vaults' directory.\n");
-          printf("  -h, --help                                  Display this message.\n");
-          printf("  -e, --editor                                Specify the editor to open.\n");
-          printf("  -j, --jump                                  Jumps to the end of the file on opening.\n");
-          printf("  -J, --no-jump                               Do not jump to the end of the file\n");
-          printf("  -n, --note  <note's name>                   Specify the note (or journal).\n");
-          printf("  -r, --render                                Renders the note with Vivify.\n");
-          printf("  -R, --no-render                             Do not render.\n");
-          printf("  -v, --vault <vault's name>                  Specify the vault.\n");
-          printf("  --version                                   Display the program version and the GPL3 notice.\n");
-          printf("  -V, --verbose                               Show debug information.\n");
-          return 1;
-      } else if (strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--editor") == 0) {
-          error(i+1==argc, "user", "Missing argument. Please use -e <editor> or --editor <editor>.");
-          editorToOpen = argv[i+1];
-          debug("Editor specified with -e or --editor is %s", editorToOpen);
-          error(!isStringInArray(editorToOpen, supportedEditor, numEditors), "user", "%s (specified with -e or --editor) is not a supported editor.", editorToOpen);
-      } else if (strcmp(argv[i], "-j") == 0 || strcmp(argv[i], "--jump") == 0) {
-          debug("-j or --jump set jumpToEnfOfFileOnLaunch to true");
-          shouldJumpToEnd = 1;
-      } else if (strcmp(argv[i], "-J") == 0 || strcmp(argv[i], "--no-jump") == 0) {
-          debug("-j or --jump set jumpToEnfOfFileOnLaunch to false"); 
-          shouldJumpToEnd = 0;
-      } else if (strcmp(argv[i], "-n") == 0 || strcmp(argv[i], "--note") == 0) {// if -n is set and not -v -> problems. We verify this case at the end of the parsing.
-          error(i+1==argc, "user", "Missing argument. Please user -n <note's name> or --note <note's name>.");
-          bypassSelectionNote = 1;
-          bypassSelectionNoteValue = argv[i+1]; // if somehow we pass a flag like -v it will create a new note with the name. So no need to worry if something is invalid. Just verifing that there is an arg after is good.
-      } else if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "--render") == 0) {
-          debug("-r or --render set shouldRender to true");
-          shouldRender = 1;
-      } else if (strcmp(argv[i], "-R") == 0 || strcmp(argv[i], "--no-render") == 0) {
-          shouldRender = 0;
-          debug("-r or --render set shouldRender to false");
-      } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--vault") == 0) {
-          error(i+1==argc, "user", "Missing argument. Pleaase use -v <vault's name> or --vault <vault's name>");
-          bypassSelectionVault = 1;
-          bypassSelectionVaultValue = argv[i+1]; // (TODO LATER) Add security checks pass ti strndup. and if vault don't exist create one. SEE (TODO LATER) where bypassVaultSelection is checked (TODO LATER) Add check if vault exist
-      } else if (strcmp(argv[i], "--version") == 0) {
-          printf("There is still no released version\n\n     Copyright (C) 2026 Tomás Rivera\n     License GPLv3: GNU GPL version 3 <https://gnu.org/licenses/gpl.html>.\n     This is free software: you are free to change and redistribute it.\n     There is NO WARRANTY, to the extent permitted by law.\n\n     Written by Tomás Rivera.\n");
-          return 0;
-      } else if (argv[i][0] == '-' && strcmp(argv[i], "-V") != 0 && strcmp(argv[i], "--verbose") != 0 && strcmp(argv[i], "-c") != 0 && strcmp(argv[i], "--config")) {
-          error(1, "user", "unexpected argument \"%s\" found\nFor more information, try \"--help\".", argv[i]);
-      }
+for (int i = 1; i < argc; i++) {
+    char *arg = argv[i];
+
+    if (strncmp(arg, "--", 2) == 0) {
+
+        if (strcmp(arg, "--verbose") == 0) {
+            shouldDebug = 1;
+            debug("--verbose enabled");
+
+        } else if (strcmp(arg, "--config") == 0) {
+            error(i + 1 == argc, "user", "Missing argument for --config");
+            overwriteConfigPath = ++i;
+            debug("--config set to %s", argv[i]);
+
+        } else if (strcmp(arg, "--directory") == 0) {
+            error(i + 1 == argc, "user", "Missing argument for --directory");
+            notesDirectoryString = argv[++i];
+            debug("--directory set to %s", notesDirectoryString);
+
+        } else if (strcmp(arg, "--editor") == 0) {
+            error(i + 1 == argc, "user", "Missing argument for --editor");
+            editorToOpen = argv[++i];
+            debug("--editor set to %s", editorToOpen);
+
+        } else if (strcmp(arg, "--note") == 0) {
+            error(i + 1 == argc, "user", "Missing argument for --note");
+            bypassSelectionNote = 1;
+            bypassSelectionNoteValue = argv[++i];
+            debug("--note set to %s", bypassSelectionNoteValue);
+
+        } else if (strcmp(arg, "--vault") == 0) {
+            error(i + 1 == argc, "user", "Missing argument for --vault");
+            bypassSelectionVault = 1;
+            bypassSelectionVaultValue = argv[++i];
+            debug("--vault set to %s", bypassSelectionVaultValue);
+
+        } else if (strcmp(arg, "--render") == 0) {
+            shouldRender = 1;
+            debug("--render enabled");
+
+        } else if (strcmp(arg, "--no-render") == 0) {
+            shouldRender = 0;
+            debug("--render disabled");
+
+        } else if (strcmp(arg, "--jump") == 0) {
+            shouldJumpToEnd = 1;
+            debug("--jump enabled");
+
+        } else if (strcmp(arg, "--no-jump") == 0) {
+            shouldJumpToEnd = 0;
+            debug("--jump disabled");
+
+        } else if (strcmp(arg, "--help") == 0) {
+            printf("Usage: notewrapper [options]\n");
+            return 0;
+
+        } else if (strcmp(arg, "--version") == 0) {
+            printf("No released version yet...\n");
+            return 0;
+
+        } else {
+            error(1, "user", "Unknown option \"%s\"", arg);
+        }
+
+    } else if (arg[0] == '-' && arg[1] != '\0') {
+
+        for (int j = 1; arg[j] != '\0'; j++) {
+            char opt = arg[j];
+
+            switch (opt) {
+
+                // -------- flags without arguments (can be combined) --------
+                case 'r':
+                    shouldRender = 1;
+                    debug("-r enabled");
+                    break;
+
+                case 'R':
+                    shouldRender = 0;
+                    debug("-R disabled");
+                    break;
+
+                case 'j':
+                    shouldJumpToEnd = 1;
+                    debug("-j enabled");
+                    break;
+
+                case 'J':
+                    shouldJumpToEnd = 0;
+                    debug("-J disabled");
+                    break;
+
+                case 'V':
+                    shouldDebug = 1;
+                    debug("-V enabled");
+                    break;
+
+                case 'h':
+                    printf("Usage: notewrapper [options]\n");
+                    return 0;
+
+                // -------- flags with arguments (MUST be last in group) --------
+                case 'd':
+                case 'e':
+                case 'n':
+                case 'v':
+                case 'c': {
+
+                    error(arg[j + 1] != '\0',
+                          "user",
+                          "-%c must not be combined with other flags", opt);
+
+                    error(i + 1 == argc,
+                          "user",
+                          "Missing argument for -%c", opt);
+
+                    char *value = argv[++i];
+
+                    switch (opt) {
+                        case 'd':
+                            notesDirectoryString = value;
+                            debug("-d set directory to %s", value);
+                            break;
+
+                        case 'e':
+                            editorToOpen = value;
+                            debug("-e set editor to %s", value);
+                            break;
+
+                        case 'n':
+                            bypassSelectionNote = 1;
+                            bypassSelectionNoteValue = value;
+                            debug("-n set note to %s", value);
+                            break;
+
+                        case 'v':
+                            bypassSelectionVault = 1;
+                            bypassSelectionVaultValue = value;
+                            debug("-v set vault to %s", value);
+                            break;
+
+                        case 'c':
+                            overwriteConfigPath = i;
+                            debug("-c set config to %s", value);
+                            break;
+                    }
+
+                    goto next_arg;
+                }
+
+                default:
+                    error(1, "user", "Unknown option -%c", opt);
+            }
+        }
+
+    } else {
+        error(1, "user", "Unexpected argument \"%s\"", arg);
     }
+
+next_arg:
+    ;
+}
     // if -n or --note is set but not -v or --vaults it gives an error
     error(!bypassSelectionVault && bypassSelectionNote, "user", "If you want to specify the note, you must also specify the vault with -v <vault's name> or --vault <vault's name>.");
 
