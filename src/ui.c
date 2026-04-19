@@ -3,6 +3,7 @@
 
 void createNewVault(char *dirToVault, int bypass, char *bypassvalue, int shouldDebug) {
   int duplicateWarning = 0; // set to 1 later if the vault you tried to create already existed
+  int emptyWarning = 0; // set to 1 later if inpted empty name
 input_screen:
   char *vaultName = malloc(PATH_MAX);
   if (!bypass) { // if won't bypass (if -v or --vault weren't set)
@@ -23,6 +24,11 @@ input_screen:
       mvprintw(4, 0, "A vault with this name already exists. Please input another name");
       attroff(COLOR_PAIR(2));
     }
+    if (emptyWarning) {
+      attron(COLOR_PAIR(2));
+      mvprintw(5, 0, "The vault's name must not be empty. Please input another name");
+      attroff(COLOR_PAIR(2));
+    }
     move(1, 1); // replace cursor 
     wgetnstr(stdscr, vaultName, PATH_MAX-1);
     refresh();
@@ -34,7 +40,11 @@ input_screen:
     strncpy(vaultName, bypassvalue, PATH_MAX -2); // -2 (and later -1) because indexing
     vaultName[PATH_MAX-1] = '\0';
   }
-  error(strcmp(vaultName, "") == 0, "user", "vaultName is empty"); // (TODO LATER) replace that with a warning
+  // check if no empty string
+  if (strcmp(vaultName, "") == 0) {
+    emptyWarning = 1;
+    goto input_screen;
+  }
   debug("Inputed vaultName=%s", vaultName);
   sanitize(vaultName);
   debug("Sanitized vaultName=%s", vaultName);
@@ -87,12 +97,7 @@ char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, int bypass, c
   regex_t regex;
   int regexReturn = regcomp(&regex, journalRegex, 0);
   error(regexReturn, "program", "Regex compilation failed.");
-  regexReturn = regexec(&regex, fileName, 0, NULL, 0); // (TODO LATER) This might be an extrem edge case but
-                                                       // if journalRegex is something like [...].md
-                                                       // and the inputed file name does not match it
-                                                       // we create it as a note
-                                                       // but if fileName + ".md" matches the regex
-                                                       // we will open it as a journal
+  regexReturn = regexec(&regex, fileName, 0, NULL, 0);
   if (!regexReturn) {
     debug("%s matches with %s treating it as a journal", fileName, journalRegex);
     char **options = malloc(32); // the number of bytes is exactly what in the two strings
@@ -101,11 +106,11 @@ char *createNewNote(char dirToVault[PATH_MAX], char *vaultFromDir, int bypass, c
     char *optionSelected = ncursesSelect(options, "Select which type of journal you want to create  (Use arrows or WASD, Enter to select):", 2, 0, "", "", " ", shouldDebug);
     debug("%s was selected to be a %s", fileName, optionSelected);
     if (strcmp(optionSelected, options[0]) == 0) { // if it is a divided journal
-      char *fileFullPath = malloc(PATH_MAX); // (TODO LATER) we use a lot of malloc. We should check for memory leaks
+      char *fileFullPath = malloc(PATH_MAX);
       snprintf(fileFullPath, PATH_MAX, "%s/%s/%s/", dirToVault, vaultFromDir, fileName);
       struct stat st = {0};
       if (stat(fileFullPath, &st) == -1) {
-        mkdir(fileFullPath, 0744); // (TODO LATER) might wanna add an error if we couldn't create the dir
+        error(!mkdir(fileFullPath, 0744), "program", "mkdir failed");
       } else {
         error(1, "program", "%s could not be created", fileFullPath);
       }
