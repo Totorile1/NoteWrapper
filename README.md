@@ -145,6 +145,8 @@ If your editor does not support these features, you can implement a plugin using
 | Vim    | ✅          | ✅      | ✅           | [vivify-vim](https://github.com/jannis-baum/vivify.vim) |
 | Nano   | ❌          | ❌      | ✅           | —                                                       |
 
+[How to add support for another editor](./CONTRIBUTING.md#adding-editor-support)
+
 ---
 
 ## Configuration
