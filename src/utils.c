@@ -1,8 +1,9 @@
 #include "utils.h"
+#include "string.h"
 #include <stddef.h>
 
-const char *supportedEditor[] = {"neovim", "vim", "nano"};
-const int numEditors = 3;
+const char *supportedEditor[] = {"helix", "nano", "neovim", "vim"};
+const int numEditors = 4;
 
 int compareString(const void *a, const void *b) {
     const char *str1 = *(const char **)a;
@@ -204,8 +205,9 @@ int doesEditorExist (char *editorToCheck, int shouldDebug) {     // Some exectua
   char *editor;   
     if (strcmp(editorToCheck, "neovim") == 0) {
       editor = strdup("nvim"); // we must use strdup and not just copy as we would have modified editorToOpen in main
-    }
-    else {
+    } else if (strcmp(editorToCheck, "helix") == 0) {
+      editor = strdup("hx");
+    } else {
       editor = strdup(editorToCheck);
     }
     char *path_env = getenv("PATH");
@@ -338,6 +340,8 @@ int openEditor(char *path, char *editor, int render, int shouldJumpToEndOfFile, 
 pid_t editor_pid = fork();
 error(editor_pid < 0, "program", "fork() failed.");
 
+// instead of reusing part of the codes, for any new editor copy an example and adapt it. This is in case we need a custom fix for an editor.
+
 if (editor_pid == 0) {
   // =========================
   // CHILD: launch editor
@@ -404,6 +408,45 @@ if (editor_pid == 0) {
     } else {
       debug("Running nano %s", path);
       execlp("nano", "nano", path, NULL);
+    }
+
+    error(1, "program", "execlp() failed.");
+  } else if (strcmp(editor, "helix") == 0) {
+
+    // If render enabled → spawn viv in parallel
+    if (render) {
+      debug("Running the editor...");
+      pid_t viv_pid = fork();
+      error(viv_pid < 0, "program", "fork() failed.");
+
+      if (viv_pid == 0) {
+        // GRANDCHILD → viv
+        
+
+        char viv_path[PATH_MAX];
+        strncpy(viv_path, path, PATH_MAX - 1);
+        viv_path[PATH_MAX - 1] = '\0';
+
+        if (shouldJumpToEndOfFile) {
+          strncat(viv_path, ":99999",
+                  PATH_MAX - strlen(viv_path) - 1);
+        }
+
+        debug("Running viv %s", viv_path);
+        execlp("viv", "viv", viv_path, NULL);
+        error(1, "program", "execlp() failed.");
+      }
+      // IMPORTANT: do NOT wait for viv
+    }
+
+    // Now run helix (this replaces the child process)
+    if (shouldJumpToEndOfFile) {
+      strncat(path, ":99999", PATH_MAX);
+      debug("Running hx %s", path);
+      execlp("hx", "hx", path, NULL);
+    } else {
+      debug("Running hx %s", path);
+      execlp("hx", "hx", path, NULL);
     }
 
     error(1, "program", "execlp() failed.");
