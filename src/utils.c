@@ -1,9 +1,8 @@
 #include "utils.h"
 #include "string.h"
-#include <stddef.h>
 
-const char *supportedEditor[] = {"helix", "nano", "neovim", "vim"};
-const int numEditors = 4;
+const char *supportedEditor[] = {"helix", "kakoune", "nano", "neovim", "vim"};
+const int numEditors = 5;
 
 int compareString(const void *a, const void *b) {
     const char *str1 = *(const char **)a;
@@ -207,6 +206,8 @@ int doesEditorExist (char *editorToCheck, int shouldDebug) {     // Some exectua
       editor = strdup("nvim"); // we must use strdup and not just copy as we would have modified editorToOpen in main
     } else if (strcmp(editorToCheck, "helix") == 0) {
       editor = strdup("hx");
+    } else if (strcmp(editorToCheck, "kakoune") == 0) {
+      editor = strdup("kak");
     } else {
       editor = strdup(editorToCheck);
     }
@@ -411,6 +412,7 @@ if (editor_pid == 0) {
     }
 
     error(1, "program", "execlp() failed.");
+      // ---- HELIX ----
   } else if (strcmp(editor, "helix") == 0) {
 
     // If render enabled → spawn viv in parallel
@@ -451,9 +453,48 @@ if (editor_pid == 0) {
 
     error(1, "program", "execlp() failed.");
   }
+    // ---- kakoune ----
+  else if (strcmp(editor, "kakoune") == 0) {
+
+    // If render enabled → spawn viv in parallel
+    if (render) {
+      debug("Running the editor...");
+      pid_t viv_pid = fork();
+      error(viv_pid < 0, "program", "fork() failed.");
+
+      if (viv_pid == 0) {
+        // GRANDCHILD → viv
+        
+
+        char viv_path[PATH_MAX];
+        strncpy(viv_path, path, PATH_MAX - 1);
+        viv_path[PATH_MAX - 1] = '\0';
+
+        if (shouldJumpToEndOfFile) {
+          strncat(viv_path, ":99999",
+                  PATH_MAX - strlen(viv_path) - 1);
+        }
+
+        debug("Running viv %s", viv_path);
+        execlp("viv", "viv", viv_path, NULL);
+        error(1, "program", "execlp() failed.");
+      }
+      // IMPORTANT: do NOT wait for viv
+    }
+
+    // Now run nano (this replaces the child process)
+    if (shouldJumpToEndOfFile) {
+      debug("Running kak + %s", path);
+      execlp("kak", "kak", "+", path, NULL);
+    } else {
+      debug("Running kak %s", path);
+      execlp("kak", "kak", path, NULL);
+    }
+
+    error(1, "program", "execlp() failed.");
 
   // ---- UNKNOWN EDITOR ----
-  else {
+  } else {
     error(1, "program", "Unknown editor.");
   }
     }
