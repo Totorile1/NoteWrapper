@@ -1,8 +1,8 @@
 #include "utils.h"
 #include "string.h"
 
-const char *supportedEditor[] = {"helix", "kakoune", "nano", "neovim", "vim"};
-const int numEditors = 5;
+const char *supportedEditor[] = {"helix", "kakoune", "micro", "nano", "neovim", "vim"};
+const int numEditors = 6;
 
 int compareString(const void *a, const void *b) {
     const char *str1 = *(const char **)a;
@@ -373,6 +373,30 @@ if (editor_pid == 0) {
       } else {
         debug("Running %s %s", bin, path);
         execlp(bin, bin, path, NULL);
+      }
+    }
+
+    error(1, "program", "execlp() failed.");
+  // ---- MICRO ----
+  } else if (strcmp(editor, "micro") == 0) {
+
+    if (render) {
+      if (shouldJumpToEndOfFile) {
+        debug("Running MICRO_VIVIFY=1 micro %s +99999", path);
+        setenv("MICRO_VIVIFY", "1", 1);
+        execlp("micro", "micro", path, "+999999", NULL);
+      } else {
+        debug("Running MICRO_VIVIFY=1 micro %s", path);
+        setenv("MICRO_VIVIFY", "1", 1);
+        execlp("micro", "micro", path, NULL);
+      }
+    } else {
+      if (shouldJumpToEndOfFile) {
+        debug("Running micro %s +999999", path);
+        execlp("micro", "micro", path, "+999999", NULL);
+      } else {
+        debug("Running micro %s", path);
+        execlp("micro", "micro", path, NULL);
       }
     }
 
