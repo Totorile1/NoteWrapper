@@ -1,8 +1,8 @@
 #include "utils.h"
 #include "string.h"
 
-const char *supportedEditor[] = {"helix", "kakoune", "micro", "nano", "neovim", "vim"};
-const int numEditors = 6;
+const char *supportedEditor[] = {"helix", "kakoune", "micro", "nano", "neovim", "vi", "vim"};
+const int numEditors = 7;
 
 int compareString(const void *a, const void *b) {
     const char *str1 = *(const char **)a;
@@ -522,7 +522,45 @@ if (editor_pid == 0) {
     }
 
     error(1, "program", "execlp() failed.");
+  // ---- VI ----
+  } else if (strcmp(editor, "vi") == 0) {
 
+    // If render enabled → spawn viv in parallel
+    if (render) {
+      debug("Running the editor...");
+      pid_t viv_pid = fork();
+      error(viv_pid < 0, "program", "fork() failed.");
+
+      if (viv_pid == 0) {
+        // GRANDCHILD → viv
+        
+
+        char viv_path[PATH_MAX];
+        strncpy(viv_path, path, PATH_MAX - 1);
+        viv_path[PATH_MAX - 1] = '\0';
+
+        if (shouldJumpToEndOfFile) {
+          strncat(viv_path, ":99999",
+                  PATH_MAX - strlen(viv_path) - 1);
+        }
+
+        debug("Running viv %s", viv_path);
+        execlp("viv", "viv", viv_path, NULL);
+        error(1, "program", "execlp() failed.");
+      }
+      // IMPORTANT: do NOT wait for viv
+    }
+
+    // Now run vi (this replaces the child process)
+    if (shouldJumpToEndOfFile) {
+      debug("Running vi +:$ %s", path);
+      execlp("vi", "vi", "+:$", path, NULL);
+    } else {
+      debug("Running vi %s", path);
+      execlp("vi", "vi", path, NULL);
+    }
+
+    error(1, "program", "execlp() failed.");
   // ---- UNKNOWN EDITOR ----
   } else {
     error(1, "program", "Unknown editor.");
