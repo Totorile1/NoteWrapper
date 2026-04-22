@@ -44,6 +44,7 @@ You must also have a [supported editor (and their associated plugin if needed)](
 
 * `helix`
 * `kakoune`
+* `micro`
 * `nano`
 * `neovim`
 * `vim`
@@ -141,13 +142,14 @@ The first two features depend on [Vivify's editor integration](https://github.co
 
 If your editor does not support these features, you can implement a plugin using [Vivify's API](https://github.com/jannis-baum/Vivify?tab=readme-ov-file#editor-support).
 
-| Editor    | Bufferless  | Cursor  | Jump to end  | Plugin required                                         |
-| --------- | ----------- | ------- | ------------ | --------------------------------------------------------|
-| Helix     | ❌          | ❌      | ✅           | —                                                       |
-| Kakoune   | ❌          | ❌      | ✅           | —                                                       |
-| Nano      | ❌          | ❌      | ✅           | —                                                       |
-| Neovim    | ✅          | ✅      | ✅           | [vivify-vim](https://github.com/jannis-baum/vivify.vim) |
-| Vim       | ✅          | ✅      | ✅           | [vivify-vim](https://github.com/jannis-baum/vivify.vim) |
+| Editor    | Bufferless  | Cursor  | Jump to end  | Aditional requirements                                   |
+| --------- | ----------- | ------- | ------------ | ---------------------------------------------------------|
+| Helix     | ❌          | ❌      | ✅           | —                                                        |
+| Kakoune   | ❌          | ❌      | ✅           | —                                                        |
+| Micro     | ❌          | ✅      | ✅           | [micro-vivify](https://codeberg.org/gibbert/micro-vivify) and [modifications to your `init.lua`](./docs/micro.md)|
+| Nano      | ❌          | ❌      | ✅           | —                                                        |
+| Neovim    | ✅          | ✅      | ✅           | [vivify-vim](https://github.com/jannis-baum/vivify.vim)  |
+| Vim       | ✅          | ✅      | ✅           | [vivify-vim](https://github.com/jannis-baum/vivify.vim)  |
 
 [How to add support for another editor](./CONTRIBUTING.md#adding-editor-support)
 
@@ -204,5 +206,5 @@ It is recommended to use a browser different from your main one for rendering.
 
 * [ ] A converter between journal types
 * [ ] Support multiple vault directories
-* [ ] Port NoteWrapper to other editors (non-exhaustive list of planned ports: `emacs -nw`, `micro`, `jed`, `ad`, flow-control, `ee`, `amp`, `dte`, `cano`, `mle`, `zee`, `ptext`, `kibi`, `ox`, `ne`, `nvi`, `dit`, `zile`, `moe`, `joe`)
+* [ ] Port NoteWrapper to other editors (non-exhaustive list of planned ports: `emacs -nw`, `jed`, `ad`, flow-control, `ee`, `amp`, `dte`, `cano`, `mle`, `zee`, `ptext`, `kibi`, `ox`, `ne`, `nvi`, `dit`, `zile`, `moe`, `joe`)
 * [ ] Default to $EDITOR
