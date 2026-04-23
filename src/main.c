@@ -322,7 +322,7 @@ for (int i = 1; i < argc; i++) {
             return 0;
 
         } else if (strcmp(arg, "--version") == 0) {
-            printf("NoteWrapper version 1.0\n");
+            printf("NoteWrapper %s\n", VERSION);
             return 0;
 
         } else {

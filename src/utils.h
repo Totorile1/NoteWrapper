@@ -18,6 +18,9 @@
 #include <errno.h> 
 #include <time.h>
 #include <ftw.h>
+#ifndef VERSION
+#define VERSION "dev"
+#endif
 #define BUFFER_SIZE 256 //standard buffer size.
 // the three supported values are "daily" "weekly" and "monthly" (for months we use the avarage lenght of a month in a non leap year). All values were calculated on my loyal TI-30 ECO RS
 #define DAILY 86400
