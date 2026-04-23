@@ -1,7 +1,10 @@
 CC := gcc
 
+VERSION := $(shell git describe --tags --always --dirty)
+
 CFLAGS := -Wall -Wextra -O2 \
-	$(shell pkg-config --cflags libcjson ncurses)
+		  -DVERSION=\"$(VERSION)\" \
+	      $(shell pkg-config --cflags libcjson ncurses)
 
 LDFLAGS := $(shell pkg-config --libs libcjson ncurses)
 
